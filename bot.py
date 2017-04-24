@@ -13,7 +13,7 @@ from slackclient import SlackClient
 # as a global object. When your bot is out of development, it's best to
 # save this in a more persistant memory store.
 #authed_teams = {}
-authed_teams = pickle.load(open("authed_teams.p", "rb"))
+authed_teams = pickle.load(open("../authed_teams.p", "rb"))
 print authed_teams
 
 class Bot(object):
@@ -76,7 +76,7 @@ class Bot(object):
                                  auth_response["bot"]["bot_access_token"]}
 
         # Save authed_teams as persistant object
-        pickle.dump(authed_teams, open("authed_teams.p", "wb"))
+        pickle.dump(authed_teams, open("../authed_teams.p", "wb"))
 
         # Then we'll reconnect to the Slack Client with the correct team's
         # bot token
