@@ -13,6 +13,7 @@ slack = pyBot.client
 
 app = Flask(__name__)
 
+#log_file = open("log.txt", "a")
 
 def _event_handler(event_type, slack_event):
     """
@@ -32,25 +33,69 @@ def _event_handler(event_type, slack_event):
         Response object with 200 - ok or 500 - No Event Handler error
 
     """
+
+    log_file = open("log.txt", "a")
+    response = ''
+    bot_action = None
     team_id = slack_event["team_id"]
 
-    print "_______________________"
-    print "event_type", event_type
-    print "event", slack_event
+    log_file.write("_______________________" + "\n")
+    #print "event_type", event_type
+    #print "event", slack_event
     if event_type == "message":
-        print "team_id", team_id
-        channel = slack_event["event"]["channel"]
-        print "channel", channel
+        #print "team_id", team_id
+        channel = slack_event["event"].get("channel")
+        #print "channel", channel
         username = slack_event["event"].get("username", None)
-        print "username", username
-        msg = slack_event["event"]["text"].lower()
-        print "msg", msg
-        response = convert_units.convert_units(msg)
-        ts = slack_event["event"]["ts"]
-        print "ts", ts
-        if(response and username!=pyBot.name):
-            print "response", response
-            pyBot.send_message(response, team_id, channel, username, ts)
+        #print "username", username
+        msg = slack_event["event"].get("text", "")
+        if username == 'unitsbot':
+            print 'unitsbot_msg: ', msg
+            log_file.write("unitsbot_msg: " + msg.encode('utf8') + "\n")
+        else:
+            print 'msg: ', msg
+            log_file.write("msg: " + msg.encode('utf8') + "\n")
+        if msg:
+            msg = msg.lower()
+
+        log_file.write("team_id: " + team_id + "\n")
+        log_file.write("channel: " + channel + "\n")
+
+        if channel=="D53NMCT0A" and msg.startswith("\\"):  # DM from james_
+            cmd, arg1, arg2 = msg[1:].split()
+            if cmd=="delete":
+                channel = arg1.upper()
+                #print "channel", channel
+                ts = arg2
+                #print "ts_real", ts
+                bot_action = pyBot.delete_message(team_id, channel, ts)
+            if cmd=="msg":
+                channel = arg1.upper()
+                response = arg
+                ts = None
+                bot_action = pyBot.send_message(response, team_id, channel, username, ts)
+
+        else:  # convert mention(s) of units
+            atunitsbot = "<@u52m3ut7a>" #TODO: hardcoded for now, automatically get bot's user_id for this team_id
+            if msg.startswith(atunitsbot): # message direct to unitsbot
+                #print "@unitsbot mention"
+                response = convert_units.pint_convert(msg.replace(atunitsbot, ''))
+            else:
+                response = convert_units.convert_units(msg)
+
+            ts = slack_event["event"].get("ts")
+            log_file.write("ts: "+ ts + "\n")
+            if(response and username!=pyBot.name):
+                bot_action = pyBot.send_message(response, team_id, channel, username, ts)
+
+
+        log_file.write('response: ' + response.encode('utf8') + '\n')
+        log_file.write('event_type: '+event_type+': ')
+        log_file.write(json.dumps(slack_event))
+        log_file.write('\n')
+        log_file.write('bot_action: ')
+        log_file.write(json.dumps(bot_action))
+        log_file.write('\n')
         return make_response("response processed", 200,)
     # ================ Team Join Events =============== #
     # When the user first joins a team, the type of event will be team_join
@@ -129,7 +174,9 @@ def hears():
     This route listens for incoming events from Slack and uses the event
     handler helper function to route events to our Bot.
     """
+
     slack_event = json.loads(request.data)
+
 
     # ============= Slack URL Verification ============ #
     # In order to verify the url of our endpoint, Slack will send a challenge
@@ -154,9 +201,18 @@ def hears():
     # ====== Process Incoming Events from Slack ======= #
     # If the incoming request is an Event we've subcribed to
     if "event" in slack_event:
-        event_type = slack_event["event"]["type"]
-        # Then handle the event by event_type and have your bot respond
-        return _event_handler(event_type, slack_event)
+        # don't process events that took place >=1 minute ago
+        retry_num = request.headers.get("X-Slack-Retry-Num")
+        #print "retry_number", retry_num
+        if retry_num > 1:
+            return make_response("[NO EVENT IN SLACK REQUEST] These are not the droids\
+                                 you're looking for.", 404, {"X-Slack-No-Retry": 1})
+        else: # first or second time this request has been sent (basically real-time)
+            event_type = slack_event["event"]["type"]
+            #print event_type
+            #print slack_event
+            # Then handle the event by event_type and have your bot respond
+            return _event_handler(event_type, slack_event)
     # If our bot hears things that are not events we've subscribed to,
     # send a quirky but helpful error response
     return make_response("[NO EVENT IN SLACK REQUEST] These are not the droids\

@@ -14,7 +14,7 @@ from slackclient import SlackClient
 # save this in a more persistant memory store.
 #authed_teams = {}
 authed_teams = pickle.load(open("../authed_teams.p", "rb"))
-print authed_teams
+#print authed_teams
 
 class Bot(object):
     """ Instanciates a Bot object to handle Slack onboarding interactions."""
@@ -155,6 +155,24 @@ class Bot(object):
         # has completed an onboarding task.
         message_obj.timestamp = timestamp
 
+    def delete_message(self, team_id, channel, ts):
+        # ts = "1493036731.922545"
+        # #ts = 1493063358.276066
+        # team_id = "T0KANT1EY"
+        #channel = "C0LA392BC"
+        # #channel = "D53NMCT0A"
+        # #response = response
+        # username = ""
+        token = authed_teams[team_id]["bot_token"]
+        sc = SlackClient(token)
+        delete_message = sc.api_call("chat.delete",
+                                            channel=channel,
+                                            ts=ts,
+                                            as_user=True,
+                                            )
+        #print 'delete_message', delete_message
+        return delete_message
+
     def send_message(self, response, team_id, channel, username, ts):
         """
         Create and send a message to a channel. Save the
@@ -167,39 +185,10 @@ class Bot(object):
             id of the Slack team associated with the incoming event
 
         """
-        # We've imported a Message class from `message.py` that we can use
-        # to create message objects for each onboarding message we send to a
-        # user. We can use these objects to keep track of the progress each
-        # user on each team has made getting through our onboarding tutorial.
 
-        # # First, we'll check to see if there's already messages our bot knows
-        # # of for the team id we've got.
-        # if self.messages.get(team_id):
-        #     # Then we'll update the message dictionary with a key for the
-        #     # user id we've recieved and a value of a new message object
-        #     self.messages[team_id].update({user_id: message.Message()})
-        # else:
-        #     # If there aren't any message for that team, we'll add a dictionary
-        #     # of messages for that team id on our Bot's messages attribute
-        #     # and we'll add the first message object to the dictionary with
-        #     # the user's id as a key for easy access later.
-        #     self.messages[team_id] = {user_id: message.Message()}
-        # message_obj = self.messages[team_id][user_id]
-        # # Then we'll set that message object's channel attribute to the DM
-        # # of the user we'll communicate with
-        # message_obj.channel = self.open_dm(user_id)
-        # # We'll use the message object's method to create the attachments that
-        # # we'll want to add to our Slack message. This method will also save
-        # # the attachments on the message object which we're accessing in the
-        # # API call below through the message object's `attachments` attribute.
-        # message_obj.create_attachments()
-
-        # print self.verification
-        # print self.oauth
-        #print authed_teams[team_id]["bot_token"]
-        print "authed_teams", authed_teams
+        #print "authed_teams", authed_teams
         token = authed_teams[team_id]["bot_token"]
-        print "token", token
+        #print "token", token
 
         message_obj = message.Message()
         message_obj.channel = channel
@@ -212,10 +201,11 @@ class Bot(object):
                                             username=self.name,
                                             icon_emoji=self.emoji,
                                             text=message_obj.text,
-                                            thread_ts=ts,
+                                            #thread_ts=ts,
                                             #reply_broadcast=False,
                                             )
-        print "post_message", post_message
+        #print "post_message", post_message
+        return post_message
         #timestamp = post_message["ts"]
         # We'll save the timestamp of the message we've just posted on the
         # message object which we'll use to update the message after a user
